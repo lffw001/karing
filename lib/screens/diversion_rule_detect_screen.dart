@@ -370,7 +370,7 @@ class _DiversionRuleDetectScreenState
     if (!setting.novice && setting.dns.enableInboundDomainResolve) {
       ReturnResult<String> resultDns = await ClashApi.dnsQueryWithDefaultRouter(
         SettingManager.getConfig().proxy.controlPort,
-        _domain,
+        _encoded.value,
         setting.ipStrategy.name,
       );
       if (resultDns.error == null) {
@@ -387,7 +387,7 @@ class _DiversionRuleDetectScreenState
 
     ReturnResult<String> outboundResult = await ClashApi.outboundQuery(
       setting.proxy.controlPort,
-      _domain,
+      _encoded.value,
       ip,
     );
 
