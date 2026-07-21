@@ -41,6 +41,7 @@ import 'package:karing/screens/themes.dart';
 import 'package:karing/screens/widgets/routes.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:vpn_service/vpn_service.dart';
 import 'package:window_manager/window_manager.dart';
@@ -49,6 +50,39 @@ import 'package:flutter_single_instance/flutter_single_instance.dart';
 List<String> processArgs = [];
 StartFailedReason? startFailedReason;
 String? startFailedReasonDesc;
+
+// Restores the window to its last saved position/size
+Future<bool> _restoreWindowBounds() async {
+  final windowConfig = SettingManager.getConfig().window;
+  if (windowConfig.width <= 0 || windowConfig.height <= 0) {
+    return false;
+  }
+  final bounds = Rect.fromLTWH(
+    windowConfig.x,
+    windowConfig.y,
+    windowConfig.width,
+    windowConfig.height,
+  );
+  try {
+    final displays = await screenRetriever.getAllDisplays();
+    final fitsAnyDisplay = displays.any((display) {
+      final visiblePosition = display.visiblePosition ?? Offset.zero;
+      final visibleSize = display.visibleSize ?? display.size;
+      return (visiblePosition & visibleSize).overlaps(bounds);
+    });
+    if (!fitsAnyDisplay) {
+      return false;
+    }
+  } catch (err) {
+    return false;
+  }
+
+  await windowManager.setBounds(bounds);
+  if (windowConfig.maximized) {
+    await windowManager.maximize();
+  }
+  return true;
+}
 
 void main(List<String> args) async {
   /* String dir = "E:\\dev\\KaringX\\karing-ruleset\\geo\\geoip";
@@ -168,7 +202,9 @@ Future<void> run(List<String> args) async {
         }
       }
 
-      await windowManager.center();
+      if (!await _restoreWindowBounds()) {
+        await windowManager.center();
+      }
     }
 
     await AutoUpdateManager.init();
@@ -270,6 +306,7 @@ class MyAppState extends State<MyApp>
   bool _launchAtStartup = false;
   bool _windowVisibleForMac = false;
   bool _trayGrey = true;
+  Timer? _saveWindowBoundsTimer;
   @override
   void initState() {
     super.initState();
@@ -303,6 +340,7 @@ class MyAppState extends State<MyApp>
     AppLifecycleStateNofity.uninit();
     WidgetsBinding.instance.removeObserver(this);
     if (PlatformUtils.isPC()) {
+      _saveWindowBoundsTimer?.cancel();
       windowManager.removeListener(this);
       trayManager.removeListener(this);
       trayManager.destroy();
@@ -429,6 +467,49 @@ class MyAppState extends State<MyApp>
     AppLifecycleStateNofity.statePaused("close");
   }
 
+  void _saveWindowBounds({bool immediate = false}) {
+    _saveWindowBoundsTimer?.cancel();
+    if (immediate) {
+      _doSaveWindowBounds();
+      return;
+    }
+    _saveWindowBoundsTimer = Timer(
+      const Duration(milliseconds: 500),
+      _doSaveWindowBounds,
+    );
+  }
+
+  Future<void> _doSaveWindowBounds() async {
+    final windowConfig = SettingManager.getConfig().window;
+    windowConfig.maximized = await windowManager.isMaximized();
+    if (!windowConfig.maximized) {
+      final bounds = await windowManager.getBounds();
+      windowConfig.x = bounds.left;
+      windowConfig.y = bounds.top;
+      windowConfig.width = bounds.width;
+      windowConfig.height = bounds.height;
+    }
+    SettingManager.save();
+  }
+
+  @override
+  void onWindowResize() => _saveWindowBounds();
+
+  @override
+  void onWindowResized() => _saveWindowBounds();
+
+  @override
+  void onWindowMove() => _saveWindowBounds();
+
+  @override
+  void onWindowMoved() => _saveWindowBounds();
+
+  @override
+  void onWindowMaximize() => _saveWindowBounds();
+
+  @override
+  void onWindowUnmaximize() => _saveWindowBounds();
+
   @override
   void onWindowMinimize() {
     _windowVisibleForMac = false;
@@ -510,6 +591,7 @@ class MyAppState extends State<MyApp>
 
   Future<void> _uninit() async {
     if (PlatformUtils.isPC()) {
+      _saveWindowBounds(immediate: true);
       await windowManager.hide();
     }
     if (startFailedReason == null) {

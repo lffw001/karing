@@ -197,6 +197,38 @@ class SettingConfigItemUI {
   }
 }
 
+class SettingConfigItemWindow {
+  double x = 0;
+  double y = 0;
+  double width = 0;
+  double height = 0;
+  bool maximized = false;
+
+  Map<String, dynamic> toJson() => {
+    'x': x,
+    'y': y,
+    'width': width,
+    'height': height,
+    'maximized': maximized,
+  };
+  void fromJson(Map<String, dynamic>? map) {
+    if (map == null) {
+      return;
+    }
+    x = (map["x"] ?? 0).toDouble();
+    y = (map["y"] ?? 0).toDouble();
+    width = (map["width"] ?? 0).toDouble();
+    height = (map["height"] ?? 0).toDouble();
+    maximized = map["maximized"] ?? false;
+  }
+
+  static SettingConfigItemWindow fromJsonStatic(Map<String, dynamic>? map) {
+    SettingConfigItemWindow config = SettingConfigItemWindow();
+    config.fromJson(map);
+    return config;
+  }
+}
+
 class SettingConfigItemUIScreen {
   static const String backgroundTypeLocal = "local";
   static const String backgroundTypeRemote = "remote";
@@ -1554,6 +1586,7 @@ class SettingConfig {
   SettingConfigItemDev dev = SettingConfigItemDev();
   SettingConfigItemUI ui = SettingConfigItemUI();
   SettingConfigItemUIScreen uiScreen = SettingConfigItemUIScreen();
+  SettingConfigItemWindow window = SettingConfigItemWindow();
   SettingConfigItemProxy proxy = SettingConfigItemProxy();
   SettingConfigItemNTP ntp = SettingConfigItemNTP();
   SettingConfigItemTUN tun = SettingConfigItemTUN();
@@ -1602,6 +1635,7 @@ class SettingConfig {
     'ui': ui,
     'dev': dev,
     'ui_screen': uiScreen,
+    'window': window,
     'ntp': ntp,
     'proxy': proxy,
     'tun': tun,
@@ -1650,6 +1684,7 @@ class SettingConfig {
     novice = map["novice"] ?? false;
 
     ui = SettingConfigItemUI.fromJsonStatic(map["ui"]);
+    window = SettingConfigItemWindow.fromJsonStatic(map["window"]);
     dev = SettingConfigItemDev.fromJsonStatic(map["dev"]);
     uiScreen = SettingConfigItemUIScreen.fromJsonStatic(
       map["ui_screen"] ?? map,
